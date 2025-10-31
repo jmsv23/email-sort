@@ -1,5 +1,6 @@
 import { auth, signOut } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import CategoriesSection from '@/components/CategoriesSection';
 
 export default async function Home() {
   const session = await auth();
@@ -96,14 +97,8 @@ export default async function Home() {
           )}
         </div>
 
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">Next Steps</h4>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
-            <li>Create custom email categories</li>
-            <li>Start processing your inbox</li>
-            <li>Review AI-classified messages</li>
-            <li>Manage subscriptions</li>
-          </ul>
+        <div className="mt-6">
+          <CategoriesSection />
         </div>
       </main>
     </div>
