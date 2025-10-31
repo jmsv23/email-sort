@@ -11,49 +11,76 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(cuid())
-  email     String     @unique
-  name      String?
-  createdAt DateTime   @default(now())
-  accounts  Account[]
-  categories Category[]
-  sessions  Session[]
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  // Optional for WebAuthn support
+  Authenticator Authenticator[]
+  categories    Category[]
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
+ 
 model Account {
-  id                String    @id @default(cuid())
   userId            String
-  provider          String    // "google"
+  type              String
+  provider          String
   providerAccountId String
-  accessToken       String?   @db.Text // Encrypted
-  refreshToken      String?   @db.Text // Encrypted
-  tokenExpiry       DateTime?
-  gmailProfileId    String?
-  createdAt         DateTime  @default(now())
-
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages Message[]
-
-  @@unique([provider, providerAccountId])
-  @@index([userId])
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  profile_id       String?
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[] // Add the reverse relation
+ 
+  @@id([provider, providerAccountId])
 }
-
+ 
 model Session {
-  id           String   @id @default(cuid())
   sessionToken String   @unique
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
+ 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
-
+ 
 model VerificationToken {
   identifier String
-  token      String   @unique
+  token      String
   expires    DateTime
-
-  @@unique([identifier, token])
+ 
+  @@id([identifier, token])
+}
+ 
+// Optional for WebAuthn support
+model Authenticator {
+  credentialID         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  transports           String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@id([userId, credentialID])
 }
 
 model Category {
@@ -73,7 +100,8 @@ model Category {
 
 model Message {
   id               String    @id @default(cuid())
-  accountId        String
+  provider         String    // Reference to Account.provider
+  providerAccountId String   // Reference to Account.providerAccountId
   gmailMessageId   String    @unique
   threadId         String?
   categoryId       String?
@@ -89,10 +117,10 @@ model Message {
   archived         Boolean   @default(false)
   unsubscribed     Boolean   @default(false)
 
-  account  Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account   @relation(fields: [provider, providerAccountId], references: [provider, providerAccountId], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
 
-  @@index([accountId])
+  @@index([provider, providerAccountId])
   @@index([categoryId])
   @@index([archived])
   @@index([gmailMessageId])

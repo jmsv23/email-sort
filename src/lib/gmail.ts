@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { prisma } from './prisma';
+import { decrypt, encrypt } from './encryption';
 
 /**
  * Get authenticated Gmail client for a user account
@@ -13,24 +14,28 @@ export async function getGmailClient(accountId: string) {
     throw new Error('Account not found or not authenticated');
   }
 
+  // Decrypt tokens
+  const decryptedAccessToken = decrypt(account.accessToken);
+  const decryptedRefreshToken = account.refreshToken ? decrypt(account.refreshToken) : undefined;
+
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET
   );
 
   oauth2Client.setCredentials({
-    access_token: account.accessToken,
-    refresh_token: account.refreshToken || undefined,
+    access_token: decryptedAccessToken,
+    refresh_token: decryptedRefreshToken,
   });
 
-  // Handle token refresh
+  // Handle token refresh - encrypt new tokens before storing
   oauth2Client.on('tokens', async (tokens) => {
     if (tokens.access_token) {
       await prisma.account.update({
         where: { id: accountId },
         data: {
-          accessToken: tokens.access_token,
-          refreshToken: tokens.refresh_token || account.refreshToken,
+          accessToken: encrypt(tokens.access_token),
+          refreshToken: tokens.refresh_token ? encrypt(tokens.refresh_token) : account.refreshToken,
           tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
         },
       });
