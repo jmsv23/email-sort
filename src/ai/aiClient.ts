@@ -7,13 +7,13 @@ export interface AIClient {
     from: string;
     text: string;
     categories: { id: string; name: string; description: string }[];
-  }): Promise<{ categoryId?: string; confidence: number; reason: string }>;
-
-  summarizeEmail(args: {
-    subject: string;
-    from: string;
-    text: string;
-  }): Promise<string>;
+  }): Promise<{
+    categoryId?: string;
+    confidence: number;
+    reason: string;
+    summary: string;
+    unsubscribeLink?: string;
+  }>;
 }
 
 /**
@@ -33,13 +33,22 @@ export class GeminiAIClient implements AIClient {
     from: string;
     text: string;
     categories: { id: string; name: string; description: string }[];
-  }): Promise<{ categoryId?: string; confidence: number; reason: string }> {
+  }): Promise<{
+    categoryId?: string;
+    confidence: number;
+    reason: string;
+    summary: string;
+    unsubscribeLink?: string;
+  }> {
     const categoriesText = args.categories
       .map((cat) => `- ${cat.name} (ID: ${cat.id}): ${cat.description}`)
       .join('\n');
 
     const systemContent = [
-      'You are an email classification assistant. Classify the following email into one of the provided categories.',
+      'You are an email classification and analysis assistant. For the given email:',
+      '1. Classify it into one of the provided categories',
+      '2. Generate a 2-3 sentence summary (40-80 words) including sender, purpose, and call-to-action',
+      '3. Extract any HTTP/HTTPS unsubscribe URL if present in the email content',
       `Categories: ${categoriesText}`
     ];
 
@@ -47,16 +56,14 @@ export class GeminiAIClient implements AIClient {
 EMAIL:
 Subject: ${args.subject}
 From: ${args.from}
-Body: ${args.text.substring(0, 1000)}`;
+Body: ${args.text.substring(0, 2000)}
 
-/*
-Return your response as valid JSON with this structure:
-{
-  "categoryId": "the category ID that best matches, or null if no good match",
-  "confidence": 0.0-1.0,
-  "reason": "brief explanation of why this category was chosen"
-}
-*/
+Analyze this email and return:
+- The best matching category ID (or null if no good match)
+- Confidence score (0.0-1.0)
+- Reason for classification
+- A 2-3 sentence summary
+- Any unsubscribe link found in the email body (look for URLs containing "unsubscribe", "opt-out", "preferences", etc.)`;
 
     const response = await this.ai.models.generateContent({
       model: this.model,
@@ -68,9 +75,9 @@ Return your response as valid JSON with this structure:
       contents: [{ text: prompt }],
     });
 
-    console.log('AI classification response:', response);
-
     const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    console.log('AI classification response text:', responseText);
 
     try {
       // Extract JSON from response (may be wrapped in markdown code blocks)
@@ -83,6 +90,8 @@ Return your response as valid JSON with this structure:
         categoryId: parsed.categoryId || undefined,
         confidence: parsed.confidence || 0.5,
         reason: parsed.reason || 'No reason provided',
+        summary: parsed.summary || 'No summary available',
+        unsubscribeLink: parsed.unsubscribeLink || undefined,
       };
     } catch (error) {
       console.error('Failed to parse AI classification response:', error);
@@ -90,41 +99,12 @@ Return your response as valid JSON with this structure:
         categoryId: undefined,
         confidence: 0,
         reason: 'Failed to classify',
+        summary: 'Failed to generate summary',
+        unsubscribeLink: undefined,
       };
     }
   }
 
-  async summarizeEmail(args: {
-    subject: string;
-    from: string;
-    text: string;
-  }): Promise<string> {
-
-    const systemContent = [
-      'You are an email summarization assistant. Summarize the following email in 2-3 sentences (40-80 words). Include the sender, main purpose, and any call-to-action.',
-    ];
-    const prompt = `
-EMAIL:
-Subject: ${args.subject}
-From: ${args.from}
-Body: ${args.text.substring(0, 2000)}
-
-Return only the summary text, no additional formatting.`;
-
-    const response = await this.ai.models.generateContent({
-      model: this.model,
-      config: {
-        systemInstruction: systemContent,
-      },
-      contents: [{ text: prompt }],
-    });
-
-    console.log('AI summarization response:', response);
-
-    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-    const summary = responseText.trim();
-    return summary;
-  }
 }
 
 /**
@@ -132,7 +112,7 @@ Return only the summary text, no additional formatting.`;
  */
 export function getAIClient(): AIClient {
   const provider = process.env.AI_PROVIDER || 'gemini';
-  const model = process.env.AI_MODEL || 'gemini-2.0-flash-exp';
+  const model = process.env.AI_MODEL || 'gemini-2.5-flash';
 
   switch (provider) {
     case 'gemini':

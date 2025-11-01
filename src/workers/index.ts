@@ -24,6 +24,20 @@ export const processNewMessageWorker = new Worker(
     const from = headers.find((h) => h.name === 'From')?.value || '';
     const to = headers.find((h) => h.name === 'To')?.value || '';
 
+    // Extract List-Unsubscribe header
+    const listUnsubscribeHeader = headers.find((h) => h.name?.toLowerCase() === 'list-unsubscribe')?.value || null;
+
+    // Parse List-Unsubscribe header to extract HTTP/HTTPS URL
+    let unsubscribeLink: string | null = null;
+    if (listUnsubscribeHeader) {
+      // List-Unsubscribe can contain multiple values like: <url>, <mailto:...>
+      // Extract HTTP/HTTPS URLs (ignore mailto links)
+      const urlMatches = listUnsubscribeHeader.match(/https?:\/\/[^\s,>]+/gi);
+      if (urlMatches && urlMatches.length > 0) {
+        unsubscribeLink = urlMatches[0];
+      }
+    }
+
     // Get body text (simplified)
     let bodyText = '';
     if (gmailMessage.payload?.body?.data) {
@@ -45,10 +59,10 @@ export const processNewMessageWorker = new Worker(
       throw new Error('Account not found');
     }
 
-    // Classify and summarize with AI
+    // Classify, summarize, and extract unsubscribe link with AI (single call)
     const aiClient = getAIClient();
 
-    const classification = await aiClient.classifyEmail({
+    const aiAnalysis = await aiClient.classifyEmail({
       subject,
       from,
       text: bodyText,
@@ -59,11 +73,10 @@ export const processNewMessageWorker = new Worker(
       })),
     });
 
-    const summary = await aiClient.summarizeEmail({
-      subject,
-      from,
-      text: bodyText,
-    });
+    // Use AI-extracted unsubscribe link as fallback if header didn't contain one
+    if (!unsubscribeLink && aiAnalysis.unsubscribeLink) {
+      unsubscribeLink = aiAnalysis.unsubscribeLink;
+    }
 
     // Store message in database
     await prisma.message.create({
@@ -72,15 +85,17 @@ export const processNewMessageWorker = new Worker(
         providerAccountId,
         gmailMessageId,
         threadId: gmailMessage.threadId || null,
-        categoryId: classification.categoryId || null,
+        categoryId: aiAnalysis.categoryId || null,
         subject,
         from,
         to,
         snippet: gmailMessage.snippet || null,
         bodyText,
         bodyHtml: null, // TODO: Extract HTML body
-        aiSummary: summary,
-        aiClassification: classification as any,
+        aiSummary: aiAnalysis.summary,
+        aiClassification: aiAnalysis as any,
+        listUnsubscribeHeader,
+        unsubscribeLink,
         archived: false,
         unsubscribed: false,
       },

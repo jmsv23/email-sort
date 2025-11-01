@@ -114,7 +114,9 @@ model Message {
   bodyText         String?   @db.Text
   bodyHtml         String?   @db.Text
   aiSummary        String?   @db.Text
-  aiClassification Json?     // {categoryId, reason, confidence}
+  aiClassification Json?     // {categoryId, reason, confidence, summary, unsubscribeLink}
+  listUnsubscribeHeader String? @db.Text  // Raw List-Unsubscribe header value
+  unsubscribeLink  String?   @db.Text     // Extracted unsubscribe URL
   importedAt       DateTime  @default(now())
   archived         Boolean   @default(false)
   unsubscribed     Boolean   @default(false)
