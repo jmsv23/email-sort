@@ -5,18 +5,23 @@ import { decrypt, encrypt } from './encryption';
 /**
  * Get authenticated Gmail client for a user account
  */
-export async function getGmailClient(accountId: string) {
+export async function getGmailClient(provider: string, providerAccountId: string) {
   const account = await prisma.account.findUnique({
-    where: { id: accountId },
+    where: {
+      provider_providerAccountId: {
+        provider: provider,
+        providerAccountId: providerAccountId,
+      },
+    },
   });
 
-  if (!account || !account.accessToken) {
+  if (!account || !account.access_token) {
     throw new Error('Account not found or not authenticated');
   }
 
   // Decrypt tokens
-  const decryptedAccessToken = decrypt(account.accessToken);
-  const decryptedRefreshToken = account.refreshToken ? decrypt(account.refreshToken) : undefined;
+  const decryptedAccessToken = decrypt(account.access_token);
+  const decryptedRefreshToken = account.refresh_token ? decrypt(account.refresh_token) : undefined;
 
   const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
@@ -32,11 +37,16 @@ export async function getGmailClient(accountId: string) {
   oauth2Client.on('tokens', async (tokens) => {
     if (tokens.access_token) {
       await prisma.account.update({
-        where: { id: accountId },
+        where: {
+          provider_providerAccountId: {
+            provider: provider,
+            providerAccountId: providerAccountId,
+          },
+        },
         data: {
-          accessToken: encrypt(tokens.access_token),
-          refreshToken: tokens.refresh_token ? encrypt(tokens.refresh_token) : account.refreshToken,
-          tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          access_token: encrypt(tokens.access_token),
+          refresh_token: tokens.refresh_token ? encrypt(tokens.refresh_token) : account.refresh_token,
+          expires_at: tokens.expiry_date ? Math.floor(tokens.expiry_date / 1000) : null,
         },
       });
     }
@@ -48,8 +58,8 @@ export async function getGmailClient(accountId: string) {
 /**
  * Fetch a message from Gmail
  */
-export async function fetchGmailMessage(accountId: string, messageId: string) {
-  const gmail = await getGmailClient(accountId);
+export async function fetchGmailMessage(provider: string, providerAccountId: string, messageId: string) {
+  const gmail = await getGmailClient(provider, providerAccountId);
   const response = await gmail.users.messages.get({
     userId: 'me',
     id: messageId,
@@ -61,8 +71,8 @@ export async function fetchGmailMessage(accountId: string, messageId: string) {
 /**
  * Archive a message in Gmail (remove INBOX label)
  */
-export async function archiveGmailMessage(accountId: string, messageId: string) {
-  const gmail = await getGmailClient(accountId);
+export async function archiveGmailMessage(provider: string, providerAccountId: string, messageId: string) {
+  const gmail = await getGmailClient(provider, providerAccountId);
   await gmail.users.messages.modify({
     userId: 'me',
     id: messageId,
@@ -75,8 +85,8 @@ export async function archiveGmailMessage(accountId: string, messageId: string) 
 /**
  * Trash a message in Gmail
  */
-export async function trashGmailMessage(accountId: string, messageId: string) {
-  const gmail = await getGmailClient(accountId);
+export async function trashGmailMessage(provider: string, providerAccountId: string, messageId: string) {
+  const gmail = await getGmailClient(provider, providerAccountId);
   await gmail.users.messages.trash({
     userId: 'me',
     id: messageId,
@@ -86,8 +96,8 @@ export async function trashGmailMessage(accountId: string, messageId: string) {
 /**
  * Get user's Gmail profile
  */
-export async function getGmailProfile(accountId: string) {
-  const gmail = await getGmailClient(accountId);
+export async function getGmailProfile(provider: string, providerAccountId: string) {
+  const gmail = await getGmailClient(provider, providerAccountId);
   const response = await gmail.users.getProfile({
     userId: 'me',
   });
@@ -97,8 +107,8 @@ export async function getGmailProfile(accountId: string) {
 /**
  * List history of changes since a historyId
  */
-export async function listGmailHistory(accountId: string, startHistoryId: string) {
-  const gmail = await getGmailClient(accountId);
+export async function listGmailHistory(provider: string, providerAccountId: string, startHistoryId: string) {
+  const gmail = await getGmailClient(provider, providerAccountId);
   const response = await gmail.users.history.list({
     userId: 'me',
     startHistoryId,
