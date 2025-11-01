@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import CategoriesSection from '@/components/CategoriesSection';
 import Navbar from '@/components/Navbar';
 import { SyncButton } from '@/components/SyncButton';
+import MessagesSection from '@/components/MessagesSection';
 
 export default async function Home() {
   const session = await auth();
@@ -40,7 +41,7 @@ export default async function Home() {
     <div className="min-h-screen bg-gray-50">
       <Navbar userEmail={session.user.email} userName={session.user.name} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-2xl font-bold mb-4">Welcome, {session.user.name}!</h2>
           <p className="text-gray-600 mb-4">
@@ -80,6 +81,10 @@ export default async function Home() {
 
         <div className="mt-6">
           <CategoriesSection />
+        </div>
+
+        <div className="mt-6">
+          <MessagesSection />
         </div>
       </main>
     </div>
