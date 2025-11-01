@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import CategoriesSection from '@/components/CategoriesSection';
 import Navbar from '@/components/Navbar';
+import { SyncButton } from '@/components/SyncButton';
 
 export default async function Home() {
   const session = await auth();
@@ -48,7 +49,10 @@ export default async function Home() {
         </div>
 
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Connected Gmail Accounts</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Connected Gmail Accounts</h3>
+            <SyncButton />
+          </div>
           {accounts.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {accounts.map((account) => (
