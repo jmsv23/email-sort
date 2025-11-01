@@ -26,13 +26,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user, account }) {
-      // Validate that we received OAuth tokens
-      if (!account?.access_token) {
-        console.error('No access token received from Google OAuth');
-        return false;
+    async session({ session, user }) {
+      if (session.user) {
+        session.user.id = user.id;
       }
-
+      return session;
+    },
+  },
+  pages: {
+    signIn: '/auth/signin',
+  },
+  events: {
+    async linkAccount({ user, account }) {
       try {
         // Fetch Gmail profile ID FIRST with plain token
         const oauth2Client = new google.auth.OAuth2(
@@ -45,7 +50,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const profile = await gmail.users.getProfile({ userId: 'me' });
 
         // THEN encrypt tokens after successful API call
-        const encryptedAccessToken = encrypt(account.access_token);
+        const encryptedAccessToken = encrypt(account?.access_token ?? '');
         const encryptedRefreshToken = account.refresh_token ? encrypt(account.refresh_token) : null;
 
         // Update account with encrypted tokens and Gmail profile
@@ -58,30 +63,16 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             data: {
               refresh_token: encryptedRefreshToken,
               access_token: encryptedAccessToken,
-              expires_at: account.expires_at,
               profile_id: profile.data.emailAddress,
             },
           });
         }
 
-        console.log(`Sign-in successful for user ${user.email}, Gmail: ${profile.data.emailAddress}`);
-        return true;
+        console.log(`Link gmail profile and encrypt token successful for user ${user.email}, Gmail: ${profile.data.emailAddress}`);
       } catch (error) {
-        console.error('Error during sign-in callback:', error);
-        return false;
+        console.error('Error during linkAccount event:', error);
       }
     },
-    async session({ session, user }) {
-      if (session.user) {
-        session.user.id = user.id;
-      }
-      return session;
-    },
-  },
-  pages: {
-    signIn: '/auth/signin',
-  },
-  events: {
     async signOut() {
       console.log('User signed out');
     },
