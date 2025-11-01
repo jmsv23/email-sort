@@ -9,7 +9,8 @@ export { connection };
 
 // Job types
 export type ProcessNewMessageJob = {
-  accountId: string;
+  provider: string;
+  providerAccountId: string;
   gmailMessageId: string;
 };
 

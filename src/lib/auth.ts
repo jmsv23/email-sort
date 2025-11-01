@@ -53,7 +53,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const encryptedAccessToken = encrypt(account?.access_token ?? '');
         const encryptedRefreshToken = account.refresh_token ? encrypt(account.refresh_token) : null;
 
-        // Update account with encrypted tokens and Gmail profile
+        // Update account with encrypted tokens, Gmail profile, and historyId
         if (account.providerAccountId && profile.data.emailAddress) {
           await prisma.account.updateMany({
             where: {
@@ -64,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               refresh_token: encryptedRefreshToken,
               access_token: encryptedAccessToken,
               profile_id: profile.data.emailAddress,
+              history_id: profile.data.historyId ? String(profile.data.historyId) : null,
             },
           });
         }

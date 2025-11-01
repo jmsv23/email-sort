@@ -3,6 +3,7 @@ import { connection } from '@/lib/redis';
 import { prisma } from '@/lib/prisma';
 import { fetchGmailMessage, archiveGmailMessage } from '@/lib/gmail';
 import { getAIClient } from '@/ai/aiClient';
+import { startPolling } from './poller';
 
 /**
  * Worker: Process new Gmail message
@@ -10,12 +11,12 @@ import { getAIClient } from '@/ai/aiClient';
 export const processNewMessageWorker = new Worker(
   'processNewMessage',
   async (job) => {
-    const { accountId, gmailMessageId } = job.data;
+    const { provider, providerAccountId, gmailMessageId } = job.data;
 
-    console.log(`Processing message ${gmailMessageId} for account ${accountId}`);
+    console.log(`Processing message ${gmailMessageId} for account ${provider}:${providerAccountId}`);
 
     // Fetch message from Gmail
-    const gmailMessage = await fetchGmailMessage(accountId, gmailMessageId);
+    const gmailMessage = await fetchGmailMessage(provider, providerAccountId, gmailMessageId);
 
     // Extract message data
     const headers = gmailMessage.payload?.headers || [];
@@ -31,7 +32,12 @@ export const processNewMessageWorker = new Worker(
 
     // Get user categories
     const account = await prisma.account.findUnique({
-      where: { id: accountId },
+      where: {
+        provider_providerAccountId: {
+          provider,
+          providerAccountId,
+        },
+      },
       include: { user: { include: { categories: true } } },
     });
 
@@ -62,7 +68,8 @@ export const processNewMessageWorker = new Worker(
     // Store message in database
     await prisma.message.create({
       data: {
-        accountId,
+        provider,
+        providerAccountId,
         gmailMessageId,
         threadId: gmailMessage.threadId || null,
         categoryId: classification.categoryId || null,
@@ -80,7 +87,7 @@ export const processNewMessageWorker = new Worker(
     });
 
     // Archive message in Gmail (remove from INBOX)
-    await archiveGmailMessage(accountId, gmailMessageId);
+    await archiveGmailMessage(provider, providerAccountId, gmailMessageId);
 
     console.log(`Message ${gmailMessageId} processed successfully`);
   },
@@ -110,3 +117,6 @@ export const unsubscribeWorker = new Worker(
 );
 
 console.log('Workers initialized and ready');
+
+// Start the Gmail polling loop
+startPolling();

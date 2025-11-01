@@ -39,7 +39,9 @@ model Account {
   id_token          String?
   session_state     String?
   profile_id       String?
- 
+  history_id        String?    // Gmail historyId for polling
+  last_polled_at    DateTime?  // Last time we polled for new messages
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
  
