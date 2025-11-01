@@ -12,7 +12,7 @@ interface Category {
   };
 }
 
-export default function CategoriesSection({ onCategoryChange = () => {} }: { onCategoryChange: (category: Category) => void }) {
+export default function CategoriesSection({ onCategoryChange = () => {} }: { onCategoryChange?: (category: Category) => void }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);

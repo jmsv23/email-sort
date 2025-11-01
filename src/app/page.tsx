@@ -1,6 +1,7 @@
-import { auth, signOut } from '@/lib/auth';
+import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import CategoriesSection from '@/components/CategoriesSection';
+import Navbar from '@/components/Navbar';
 
 export default async function Home() {
   const session = await auth();
@@ -36,31 +37,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Email Sort</h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{session.user.email}</span>
-              <form
-                action={async () => {
-                  'use server';
-                  await signOut({ redirectTo: '/auth/signin' });
-                }}
-              >
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-                >
-                  Sign Out
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar userEmail={session.user.email} userName={session.user.name} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow p-6 mb-6">

@@ -56,8 +56,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               providerAccountId: account.providerAccountId,
             },
             data: {
-              refresh_token: encryptedAccessToken,
-              access_token: encryptedRefreshToken,
+              refresh_token: encryptedRefreshToken,
+              access_token: encryptedAccessToken,
               expires_at: account.expires_at,
               profile_id: profile.data.emailAddress,
             },
