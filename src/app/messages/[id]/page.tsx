@@ -82,10 +82,10 @@ export default async function MessageDetailPage({ params }: PageProps) {
         {/* Header with Actions */}
         <div className="bg-white rounded-lg shadow mb-6">
           <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
+            <div>
               <a
                 href="/"
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium mb-4 inline-block"
               >
                 ← Back to Messages
               </a>

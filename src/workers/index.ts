@@ -177,7 +177,7 @@ export const processNewMessageWorker = new Worker(
 export const unsubscribeWorker = new Worker(
   'unsubscribe',
   async (job) => {
-    const { messageId, userId } = job.data;
+    const { messageId } = job.data;
 
     console.log(`[UnsubscribeWorker] Processing unsubscribe job for message ${messageId}`);
 

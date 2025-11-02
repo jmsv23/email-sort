@@ -133,7 +133,17 @@ console.log('AI classification prompt:', prompt);
 
     const client = new PlaywrightClient();
     await client.initialize({ headless: true });
-    await client.openPage(args.url);
+    try {
+      await client.openPage(args.url);
+    } catch (error) {
+      console.error('Failed to load unsubscribe page:', error);
+      await client.close();
+      return {
+        success: false,
+        reason: 'Failed to load unsubscribe page',
+      };
+    }
+
     const content = await client.getPageContent();
     const screenshotBase64 = await client.getScreenshot();
 
