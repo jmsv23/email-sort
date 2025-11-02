@@ -5,7 +5,7 @@ import { prisma } from './prisma';
 import { encrypt } from './encryption';
 import { google } from 'googleapis';
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const nextAuthConfig = NextAuth({
   adapter: PrismaAdapter(prisma),
   providers: [
     Google({
@@ -79,3 +79,25 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+// Export handlers, signIn, signOut as-is
+export const { handlers, signIn, signOut } = nextAuthConfig;
+
+// Wrap auth function to support test mode with production safety check
+export const auth = async () => {
+  const isTestMode = process.env.E2E_TEST_MODE === 'true' &&
+                     process.env.NODE_ENV !== 'production';
+
+  if (isTestMode) {
+    return {
+      user: {
+        id: 'test-user-123',
+        email: 'test@example.com',
+        name: 'Test User',
+      },
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    };
+  }
+
+  return nextAuthConfig.auth();
+};

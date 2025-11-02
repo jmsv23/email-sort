@@ -176,17 +176,3 @@ Check Redis connection and ensure worker is running:
 ```bash
 npm run worker
 ```
-
-## Next Steps (Day 1+)
-
-- [ ] Build category management UI
-- [ ] Implement Gmail polling/webhook
-- [ ] Create email listing and detail views
-- [ ] Add bulk actions (delete, unsubscribe)
-- [ ] Implement Playwright unsubscribe automation
-- [ ] Add tests
-- [ ] Deploy to production
-
-## License
-
-ISC

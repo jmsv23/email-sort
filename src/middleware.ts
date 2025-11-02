@@ -4,6 +4,14 @@ import type { NextRequest } from 'next/server';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // Bypass auth in test mode (with production safety check)
+  const isTestMode = process.env.E2E_TEST_MODE === 'true' &&
+                     process.env.NODE_ENV !== 'production';
+
+  if (isTestMode) {
+    return NextResponse.next();
+  }
+
   // Public routes that don't require authentication
   const publicRoutes = ['/auth/signin', '/api/auth'];
 
