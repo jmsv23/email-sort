@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     };
 
     if (categoryId && categoryId !== 'all') {
-      whereClause.categoryId = categoryId;
+      whereClause.categoryId = categoryId === 'uncategorized' ? null : categoryId;
     }
 
     if (accountId && accountId !== 'all') {
