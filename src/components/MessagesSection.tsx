@@ -11,6 +11,7 @@ export default function MessagesSection() {
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleAccountChange = (accountId: string | null) => {
     setSelectedAccount(accountId);
@@ -48,13 +49,11 @@ export default function MessagesSection() {
       console.log('Delete result:', result);
 
       // Show success message (you could use a toast notification library)
-      alert(result.message || 'Messages deleted successfully (mocked)');
+      alert(result.message || 'Messages deleted successfully');
 
       // Clear selection and refresh list
       setSelectedMessages([]);
-
-      // Force refresh the messages list by updating a key or calling a refresh function
-      // For now, we'll just clear the selection
+      setRefreshKey(prev => prev + 1); // Trigger refresh of messages list
     } catch (error) {
       console.error('Error deleting messages:', error);
       alert('Failed to delete messages. Please try again.');
@@ -115,6 +114,7 @@ export default function MessagesSection() {
 
       {/* Messages List */}
       <MessagesList
+        key={refreshKey}
         categoryId={selectedCategoryId}
         accountId={selectedAccount}
         selectedMessages={selectedMessages}

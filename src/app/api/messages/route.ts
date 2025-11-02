@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       account: {
         userId: session.user.id,
       },
+      archived: false, // Exclude deleted messages
     };
 
     if (categoryId && categoryId !== 'all') {

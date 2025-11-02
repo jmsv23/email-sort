@@ -16,6 +16,7 @@ export async function GET(
     const message = await prisma.message.findFirst({
       where: {
         id: params.id,
+        archived: false, // Exclude deleted messages
         account: {
           userId: session.user.id,
         },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { trashGmailMessage } from '@/lib/gmail';
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +39,9 @@ export async function POST(request: Request) {
         id: true,
         subject: true,
         from: true,
+        gmailMessageId: true,
+        provider: true,
+        providerAccountId: true,
       },
     });
 
@@ -54,16 +58,51 @@ export async function POST(request: Request) {
     console.log('[MOCK] Message subjects:', messages.map(m => m.subject).join(', '));
 
     if (action === 'delete') {
-      // TODO: Implement actual delete logic
-      // 1. Delete from Gmail via API
-      // 2. Delete from database
-      console.log('[MOCK] Would delete messages from Gmail and database');
+      // Move messages to Gmail trash and mark as archived in DB
+      let successCount = 0;
+      let failureCount = 0;
+      const errors: { messageId: string; error: string }[] = [];
+
+      for (const message of messages) {
+        try {
+          // Move to Gmail trash
+          await trashGmailMessage(
+            message.provider,
+            message.providerAccountId,
+            message.gmailMessageId
+          );
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to trash Gmail message ${message.gmailMessageId}:`, error);
+          failureCount++;
+          errors.push({
+            messageId: message.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
+      // Mark all messages as archived in database (soft delete)
+      // Do this even if some Gmail API calls failed
+      await prisma.message.updateMany({
+        where: {
+          id: { in: messageIds },
+        },
+        data: {
+          archived: true,
+        },
+      });
 
       return NextResponse.json({
         success: true,
         action: 'delete',
         count: messages.length,
-        message: `Successfully deleted ${messages.length} message(s) (mocked)`,
+        successCount,
+        failureCount,
+        message: failureCount > 0
+          ? `Deleted ${successCount} message(s). ${failureCount} failed to delete from Gmail but were archived locally.`
+          : `Successfully deleted ${successCount} message(s)`,
+        errors: errors.length > 0 ? errors : undefined,
       });
     }
 
