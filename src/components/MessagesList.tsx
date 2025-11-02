@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface Message {
   id: string;
@@ -40,6 +41,7 @@ export default function MessagesList({
   selectedMessages,
   onSelectionChange,
 }: MessagesListProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,18 @@ export default function MessagesList({
     } else {
       onSelectionChange([...selectedMessages, messageId]);
     }
+  };
+
+  const handleRowClick = (messageId: string, event: React.MouseEvent) => {
+    // Don't navigate if clicking checkbox or its cell
+    const target = event.target as HTMLElement;
+    if (
+      target.type === 'checkbox' ||
+      target.closest('td')?.querySelector('input[type="checkbox"]')
+    ) {
+      return;
+    }
+    router.push(`/messages/${messageId}`);
   };
 
   const isAllSelected = messages.length > 0 && selectedMessages.length === messages.length;
@@ -215,7 +229,8 @@ export default function MessagesList({
             {messages.map((message) => (
               <tr
                 key={message.id}
-                className={`hover:bg-gray-50 transition-colors ${
+                onClick={(e) => handleRowClick(message.id, e)}
+                className={`hover:bg-gray-50 transition-colors cursor-pointer ${
                   selectedMessages.includes(message.id) ? 'bg-blue-50' : ''
                 }`}
               >
