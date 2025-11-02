@@ -74,9 +74,9 @@ export default function MessagesFilter({
   };
 
   const handleClearFilters = () => {
-    setSelectedCategory('all');
+    // setSelectedCategory('all');
     setSelectedAccount('all');
-    onCategoryChange(null);
+    // onCategoryChange(null);
     onAccountChange(null);
   };
 
@@ -94,7 +94,7 @@ export default function MessagesFilter({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className={`bg-white rounded-lg shadow p-4 ${accounts.length <= 1 ? 'hidden' : ''}`}>
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
           {/* Category Filter - Hidden (controlled by category pills) */}
@@ -118,25 +118,27 @@ export default function MessagesFilter({
             </select>
           </div>
 
-          {/* Account Filter */}
-          <div className="flex-1">
-            <label htmlFor="account-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Filter by Account
-            </label>
-            <select
-              id="account-filter"
-              value={selectedAccount}
-              onChange={(e) => handleAccountChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Accounts</option>
-              {accounts.map((account) => (
-                <option key={account.providerAccountId} value={account.providerAccountId}>
-                  {account.profile_id || account.providerAccountId} ({account._count.messages})
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Account Filter - Only show if user has more than 1 account */}
+          {accounts.length > 1 && (
+            <div className="flex-1">
+              <label htmlFor="account-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                Filter by Account
+              </label>
+              <select
+                id="account-filter"
+                value={selectedAccount}
+                onChange={(e) => handleAccountChange(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Accounts</option>
+                {accounts.map((account) => (
+                  <option key={account.providerAccountId} value={account.providerAccountId}>
+                    {account.profile_id || account.providerAccountId} ({account._count.messages})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Clear Filters Button */}

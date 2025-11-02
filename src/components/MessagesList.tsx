@@ -47,10 +47,19 @@ export default function MessagesList({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [accountCount, setAccountCount] = useState(0);
 
   useEffect(() => {
     fetchMessages();
   }, [categoryId, accountId, currentPage]);
+
+  useEffect(() => {
+    // Fetch account count to determine if account column should be shown
+    fetch('/api/accounts')
+      .then((res) => res.json())
+      .then((data) => setAccountCount(data.length))
+      .catch((err) => console.error('Error fetching account count:', err));
+  }, []);
 
   const fetchMessages = async () => {
     try {
@@ -184,7 +193,7 @@ export default function MessagesList({
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-200">
             <tr>
               <th scope="col" className="w-12 px-6 py-3">
                 <input
@@ -201,28 +210,30 @@ export default function MessagesList({
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
               >
                 Subject
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
               >
                 Summary
               </th>
               <th
                 scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
               >
                 Category
               </th>
-              <th
-                scope="col"
-                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-              >
-                Account
-              </th>
+              {accountCount > 1 && (
+                <th
+                  scope="col"
+                  className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                >
+                  Account
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -244,16 +255,16 @@ export default function MessagesList({
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-col">
-                    <div className="text-sm font-medium text-gray-900 truncate max-w-md">
+                    <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
                       {message.subject || '(No subject)'}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 mt-1 truncate max-w-xs">
                       {message.from || 'Unknown sender'}
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-700 line-clamp-2 max-w-lg">
+                  <div className="text-sm text-gray-700 line-clamp-2 max-w-2xl">
                     {message.aiSummary || message.snippet || 'No preview available'}
                   </div>
                 </td>
@@ -268,11 +279,13 @@ export default function MessagesList({
                     </span>
                   )}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900 truncate max-w-xs">
-                    {message.account.profile_id || message.account.providerAccountId}
-                  </div>
-                </td>
+                {accountCount > 1 && (
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 truncate max-w-xs">
+                      {message.account.profile_id || message.account.providerAccountId}
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
