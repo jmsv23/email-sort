@@ -182,7 +182,7 @@ export default function MessagesList({
           <p className="mt-1 text-sm text-gray-500">
             {categoryId || accountId
               ? 'No messages match your selected filters.'
-              : 'Connect a Gmail account and sync to see your messages.'}
+              : 'Create your first category to start syncing your messages.'}
           </p>
         </div>
       </div>
