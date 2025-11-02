@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface MessageDetailActionsProps {
   messageId: string;
@@ -13,13 +14,41 @@ export default function MessageDetailActions({
   unsubscribeLink,
   isUnsubscribed,
 }: MessageDetailActionsProps) {
+  const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = () => {
-    // Mock implementation for now
-    console.log('Delete message:', messageId);
-    alert('Delete functionality will be implemented soon!\nMessage ID: ' + messageId);
-    setShowDeleteConfirm(false);
+  const handleDelete = async () => {
+    try {
+      setIsDeleting(true);
+
+      const response = await fetch('/api/messages/bulk-actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messageIds: [messageId],
+          action: 'delete',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete message');
+      }
+
+      const result = await response.json();
+      console.log('Delete result:', result);
+
+      // Invalidate cache and redirect to home page after successful deletion
+      router.refresh(); // Force refresh cached server components
+      router.push('/'); // Navigate to home page
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      alert('Failed to delete message. Please try again.');
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
   };
 
   const handleUnsubscribe = () => {
@@ -85,15 +114,20 @@ export default function MessageDetailActions({
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Delete
+                {isDeleting && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                )}
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

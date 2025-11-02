@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { trashGmailMessage } from '@/lib/gmail';
@@ -53,9 +54,8 @@ export async function POST(request: Request) {
     }
 
     // Mock implementation - log the action
-    console.log(`[MOCK] Bulk action "${action}" requested for ${messages.length} messages by user ${session.user.id}`);
-    console.log('[MOCK] Message IDs:', messageIds);
-    console.log('[MOCK] Message subjects:', messages.map(m => m.subject).join(', '));
+    console.log(`Bulk action "${action}" requested for ${messages.length} messages by user ${session.user.id}`);
+    console.log('Message IDs:', messageIds);
 
     if (action === 'delete') {
       // Move messages to Gmail trash and mark as archived in DB
@@ -92,6 +92,9 @@ export async function POST(request: Request) {
           archived: true,
         },
       });
+
+      // Invalidate cache for home page to refresh message list
+      revalidatePath('/');
 
       return NextResponse.json({
         success: true,
