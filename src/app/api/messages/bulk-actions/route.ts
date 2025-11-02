@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { trashGmailMessage } from '@/lib/gmail';
+import { enqueueUnsubscribeJob } from '@/lib/queue';
 
 export async function POST(request: Request) {
   try {
@@ -43,6 +44,7 @@ export async function POST(request: Request) {
         gmailMessageId: true,
         provider: true,
         providerAccountId: true,
+        unsubscribeLink: true,
       },
     });
 
@@ -110,17 +112,54 @@ export async function POST(request: Request) {
     }
 
     if (action === 'unsubscribe') {
-      // TODO: Implement actual unsubscribe logic
-      // 1. Extract unsubscribe links
-      // 2. Enqueue unsubscribe jobs
-      // 3. Update message status
-      console.log('[MOCK] Would enqueue unsubscribe jobs for messages');
+      // Filter messages that have unsubscribe links
+      const messagesWithUnsubscribeLinks = messages.filter(
+        (msg) => msg.unsubscribeLink && msg.unsubscribeLink.trim() !== ''
+      );
+
+      const messagesWithoutLinks = messages.filter(
+        (msg) => !msg.unsubscribeLink || msg.unsubscribeLink.trim() === ''
+      );
+
+      // Enqueue unsubscribe jobs for messages with unsubscribe links
+      let enqueuedCount = 0;
+      const errors: { messageId: string; error: string }[] = [];
+
+      for (const message of messagesWithUnsubscribeLinks) {
+        try {
+          await enqueueUnsubscribeJob(message.id, session.user.id);
+          enqueuedCount++;
+        } catch (error) {
+          console.error(`Failed to enqueue unsubscribe job for message ${message.id}:`, error);
+          errors.push({
+            messageId: message.id,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+
+      // Build response with details about enqueued and skipped messages
+      const skippedCount = messagesWithoutLinks.length;
+      const skippedReasons = messagesWithoutLinks.map((msg) => ({
+        messageId: msg.id,
+        subject: msg.subject,
+        reason: 'No unsubscribe link available',
+      }));
+
+      // Invalidate cache to refresh UI
+      revalidatePath('/');
 
       return NextResponse.json({
         success: true,
         action: 'unsubscribe',
-        count: messages.length,
-        message: `Successfully queued ${messages.length} message(s) for unsubscribe (mocked)`,
+        enqueued: enqueuedCount,
+        skipped: skippedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        skippedReasons: skippedCount > 0 ? skippedReasons : undefined,
+        message:
+          skippedCount > 0
+            ? `Enqueued ${enqueuedCount} message(s) for unsubscribe. Skipped ${skippedCount} message(s) without unsubscribe links.`
+            : `Successfully enqueued ${enqueuedCount} message(s) for unsubscribe`,
       });
     }
 

@@ -93,6 +93,7 @@ export default async function MessageDetailPage({ params }: PageProps) {
                 messageId={message.id}
                 unsubscribeLink={message.unsubscribeLink}
                 isUnsubscribed={message.unsubscribed}
+                unsubscribedReason={message.unsubscribedReason}
               />
             </div>
           </div>

@@ -172,22 +172,92 @@ export const processNewMessageWorker = new Worker(
 
 /**
  * Worker: Unsubscribe from email
- * TODO: Implement Playwright-based unsubscribe automation
+ * Uses Playwright-based AI automation to unsubscribe
  */
 export const unsubscribeWorker = new Worker(
   'unsubscribe',
   async (job) => {
     const { messageId, userId } = job.data;
 
-    console.log(`Unsubscribe job for message ${messageId}`);
+    console.log(`[UnsubscribeWorker] Processing unsubscribe job for message ${messageId}`);
 
-    // TODO: Implement unsubscribe logic
-    // 1. Extract unsubscribe link from message
-    // 2. Launch Playwright browser
-    // 3. Navigate and detect/fill forms
-    // 4. Mark message as unsubscribed
+    try {
+      // Fetch message with account details
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        include: {
+          account: true,
+        },
+      });
 
-    console.log('Unsubscribe worker not yet implemented');
+      if (!message) {
+        throw new Error(`Message ${messageId} not found`);
+      }
+
+      // Validate unsubscribe link exists
+      if (!message.unsubscribeLink) {
+        const errorReason = 'No unsubscribe link available for this message';
+        console.log(`[UnsubscribeWorker] ${errorReason}`);
+
+        // Update message with failure reason
+        await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            unsubscribedReason: errorReason,
+          },
+        });
+
+        return;
+      }
+
+      // Extract recipient email from 'to' field
+      const recipientEmail = message.to || message.account.profile_id || '';
+
+      console.log(`[UnsubscribeWorker] Attempting to unsubscribe ${recipientEmail} from ${message.unsubscribeLink}`);
+
+      // Call AI-powered unsubscribe automation
+      const aiClient = getAIClient();
+      const result = await aiClient.unsubscribeFrom({
+        url: message.unsubscribeLink,
+        email: recipientEmail,
+      });
+
+      console.log(`[UnsubscribeWorker] Unsubscribe result:`, result);
+
+      // Update message based on result
+      if (result.success) {
+        await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            unsubscribed: true,
+            unsubscribedReason: null, // Clear any previous failure reason
+          },
+        });
+        console.log(`[UnsubscribeWorker] Successfully unsubscribed from message ${messageId}`);
+      } else {
+        await prisma.message.update({
+          where: { id: messageId },
+          data: {
+            unsubscribed: false,
+            unsubscribedReason: result.reason,
+          },
+        });
+        console.log(`[UnsubscribeWorker] Failed to unsubscribe from message ${messageId}: ${result.reason}`);
+      }
+    } catch (error) {
+      console.error(`[UnsubscribeWorker] Error processing unsubscribe job for message ${messageId}:`, error);
+
+      // Update message with error reason
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      await prisma.message.update({
+        where: { id: messageId },
+        data: {
+          unsubscribedReason: `Error: ${errorMessage}`,
+        },
+      });
+
+      throw error; // Re-throw to let BullMQ handle retry logic
+    }
   },
   { connection }
 );

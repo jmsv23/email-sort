@@ -7,16 +7,19 @@ interface MessageDetailActionsProps {
   messageId: string;
   unsubscribeLink: string | null;
   isUnsubscribed: boolean;
+  unsubscribedReason: string | null;
 }
 
 export default function MessageDetailActions({
   messageId,
   unsubscribeLink,
   isUnsubscribed,
+  unsubscribedReason,
 }: MessageDetailActionsProps) {
   const router = useRouter();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   const handleDelete = async () => {
     try {
@@ -51,54 +54,128 @@ export default function MessageDetailActions({
     }
   };
 
-  const handleUnsubscribe = () => {
-    if (unsubscribeLink) {
-      // Open unsubscribe link in new tab
+  const handleUnsubscribe = async (isAutomated: boolean) => {
+    if (!unsubscribeLink) return;
+
+    if (isAutomated) {
+      // Automated unsubscribe via bulk-actions API
+      try {
+        setIsUnsubscribing(true);
+
+        const response = await fetch('/api/messages/bulk-actions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            messageIds: [messageId],
+            action: 'unsubscribe',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to enqueue unsubscribe job');
+        }
+
+        const result = await response.json();
+        console.log('Unsubscribe enqueue result:', result);
+
+        alert('Unsubscribe request has been queued. This may take a few moments to process.');
+
+        // Refresh the page to see updated status
+        router.refresh();
+      } catch (error) {
+        console.error('Error enqueueing unsubscribe:', error);
+        alert('Failed to enqueue unsubscribe request. Please try again.');
+      } finally {
+        setIsUnsubscribing(false);
+      }
+    } else {
+      // Manual unsubscribe - open link in new tab
       window.open(unsubscribeLink, '_blank', 'noopener,noreferrer');
     }
   };
 
   return (
     <>
-      <div className="flex items-center gap-3">
-        {/* Unsubscribe Button/Status */}
-        {unsubscribeLink && (
-          <>
-            {isUnsubscribed ? (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                Unsubscribed
-              </div>
-            ) : (
-              <button
-                onClick={handleUnsubscribe}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Unsubscribe
-              </button>
-            )}
-          </>
-        )}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          {/* Unsubscribe Button/Status - Only show if message has unsubscribe link */}
+          {unsubscribeLink && (
+            <>
+              {/* Scenario A: Successfully unsubscribed */}
+              {isUnsubscribed && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium">
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                  Unsubscribed
+                </div>
+              )}
 
-        {/* Delete Button */}
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-        >
-          Delete
-        </button>
+              {/* Scenario B: Failed to unsubscribe (has reason) */}
+              {!isUnsubscribed && unsubscribedReason && (
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleUnsubscribe(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      Manual Unsubscribe
+                    </button>
+                    <button
+                      onClick={() => handleUnsubscribe(true)}
+                      disabled={isUnsubscribing}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isUnsubscribing && (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      )}
+                      {isUnsubscribing ? 'Enqueueing...' : 'Retry Automated'}
+                    </button>
+                  </div>
+                  <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      <span className="font-medium">Previous attempt failed:</span> {unsubscribedReason}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Scenario C: Not yet attempted (no reason) */}
+              {!isUnsubscribed && !unsubscribedReason && (
+                <button
+                  onClick={() => handleUnsubscribe(true)}
+                  disabled={isUnsubscribing}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isUnsubscribing && (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  )}
+                  {isUnsubscribing ? 'Enqueueing...' : 'Unsubscribe'}
+                </button>
+              )}
+            </>
+          )}
+
+          {/* Delete Button */}
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       {/* Delete Confirmation Modal */}

@@ -120,6 +120,7 @@ model Message {
   importedAt       DateTime  @default(now())
   archived         Boolean   @default(false)
   unsubscribed     Boolean   @default(false)
+  unsubscribedReason String? @db.Text     // Reason if unsubscribe failed or details
 
   account  Account   @relation(fields: [provider, providerAccountId], references: [provider, providerAccountId], onDelete: Cascade)
   category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
