@@ -44,16 +44,10 @@ export default async function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-2xl font-bold mb-4">Welcome, {session.user.name}!</h2>
+          {/* <SyncButton /> */}
           <p className="text-gray-600 mb-4">
-            You have successfully connected your Google account.
+            This are the email accounts that we are watching...
           </p>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold">Connected Gmail Accounts</h3>
-            <SyncButton />
-          </div>
           {accounts.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {accounts.map((account) => (
