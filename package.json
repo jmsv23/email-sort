@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:worker": "tsc --project tsconfig.worker.json",
+    "build:worker": "tsc --project tsconfig.worker.json && tsc-alias -p tsconfig.worker.json",
     "start": "prisma migrate deploy && next start",
     "start:worker": "node dist/workers/index.js",
     "lint": "next lint",
@@ -67,6 +67,7 @@
     "@types/turndown": "^5.0.6",
     "jest": "^30.2.0",
     "jest-environment-jsdom": "^30.2.0",
+    "tsc-alias": "^1.8.16",
     "tsx": "^4.20.6"
   }
 }
