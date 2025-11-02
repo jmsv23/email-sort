@@ -20,12 +20,12 @@ interface Account {
 }
 
 interface MessagesFilterProps {
-  onCategoryChange: (categoryId: string | null) => void;
+  onCategoryChange?: (categoryId: string | null) => void;
   onAccountChange: (accountId: string | null) => void;
 }
 
 export default function MessagesFilter({
-  onCategoryChange,
+  onCategoryChange = () => {},
   onAccountChange,
 }: MessagesFilterProps) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -97,8 +97,8 @@ export default function MessagesFilter({
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
         <div className="flex-1 flex flex-col sm:flex-row gap-4 w-full">
-          {/* Category Filter */}
-          <div className="flex-1">
+          {/* Category Filter - Hidden (controlled by category pills) */}
+          <div className="flex-1 hidden">
             <label htmlFor="category-filter" className="block text-sm font-medium text-gray-700 mb-1">
               Filter by Category
             </label>

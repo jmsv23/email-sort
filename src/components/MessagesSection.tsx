@@ -4,17 +4,13 @@ import { useState } from 'react';
 import MessagesFilter from './MessagesFilter';
 import MessagesList from './MessagesList';
 import BulkActionsBar from './BulkActionsBar';
+import { useCategoryFilter } from '@/contexts/CategoryFilterContext';
 
 export default function MessagesSection() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const { selectedCategoryId } = useCategoryFilter();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const handleCategoryChange = (categoryId: string | null) => {
-    setSelectedCategory(categoryId);
-    setSelectedMessages([]); // Clear selection when filter changes
-  };
 
   const handleAccountChange = (accountId: string | null) => {
     setSelectedAccount(accountId);
@@ -114,13 +110,12 @@ export default function MessagesSection() {
 
       {/* Filters */}
       <MessagesFilter
-        onCategoryChange={handleCategoryChange}
         onAccountChange={handleAccountChange}
       />
 
       {/* Messages List */}
       <MessagesList
-        categoryId={selectedCategory}
+        categoryId={selectedCategoryId}
         accountId={selectedAccount}
         selectedMessages={selectedMessages}
         onSelectionChange={handleSelectionChange}

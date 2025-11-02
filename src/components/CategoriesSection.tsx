@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCategoryFilter } from '@/contexts/CategoryFilterContext';
 
 interface Category {
   id: string;
@@ -20,6 +21,8 @@ export default function CategoriesSection({ onCategoryChange = () => {} }: { onC
   const [formData, setFormData] = useState({ name: '', description: '' });
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uncategorizedCount, setUncategorizedCount] = useState(0);
+  const { selectedCategoryId, setSelectedCategoryId } = useCategoryFilter();
 
   // Fetch categories on mount
   useEffect(() => {
@@ -33,6 +36,13 @@ export default function CategoriesSection({ onCategoryChange = () => {} }: { onC
       if (!response.ok) throw new Error('Failed to fetch categories');
       const data = await response.json();
       setCategories(data);
+
+      // Fetch uncategorized count
+      const messagesResponse = await fetch('/api/messages?categoryId=uncategorized');
+      if (messagesResponse.ok) {
+        const messagesData = await messagesResponse.json();
+        setUncategorizedCount(messagesData.length);
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {
@@ -119,6 +129,10 @@ export default function CategoriesSection({ onCategoryChange = () => {} }: { onC
     }
   };
 
+  const handleCategoryClick = (categoryId: string) => {
+    setSelectedCategoryId(selectedCategoryId === categoryId ? null : categoryId);
+  };
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-4">
@@ -135,43 +149,84 @@ export default function CategoriesSection({ onCategoryChange = () => {} }: { onC
         <p className="text-gray-500 text-sm">Loading categories...</p>
       ) : categories.length > 0 ? (
         <div className="flex flex-wrap gap-3">
-          {categories.map((category) => (
-            <div
-              key={category.id}
-              className="relative group"
-              title={category.description || 'No description'}
-              onClick={() => onCategoryChange(category)}
-            >
-              <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium flex items-center gap-2 transition-all hover:bg-blue-200 cursor-default">
-                <span>{category.name}</span>
-                <span className="bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full text-xs font-semibold">
-                  {category._count.messages}
-                </span>
-              </div>
+          {categories.map((category) => {
+            const isSelected = selectedCategoryId === category.id;
+            return (
+              <div
+                key={category.id}
+                className="relative group"
+                title={category.description || 'No description'}
+              >
+                <div
+                  onClick={() => handleCategoryClick(category.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                  }`}
+                >
+                  <span>{category.name}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    isSelected
+                      ? 'bg-blue-700 text-white'
+                      : 'bg-blue-200 text-blue-900'
+                  }`}>
+                    {category._count.messages}
+                  </span>
+                </div>
 
-              {/* Floating action buttons on hover */}
-              <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 -mt-2 -mr-2">
-                <button
-                  onClick={() => handleOpenForm(category)}
-                  className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:text-blue-600 hover:border-blue-400 shadow-sm transition-colors"
-                  aria-label="Edit category"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleDelete(category.id)}
-                  className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:text-red-600 hover:border-red-400 shadow-sm transition-colors"
-                  aria-label="Delete category"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                {/* Floating action buttons on hover */}
+                <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 -mt-2 -mr-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenForm(category);
+                    }}
+                    className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:text-blue-600 hover:border-blue-400 shadow-sm transition-colors"
+                    aria-label="Edit category"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(category.id);
+                    }}
+                    className="w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center text-gray-600 hover:text-red-600 hover:border-red-400 shadow-sm transition-colors"
+                    aria-label="Delete category"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                </div>
               </div>
+            );
+          })}
+
+          {/* Uncategorized pill - only show when user has categories */}
+          <div className="relative group">
+            <div
+              onClick={() => handleCategoryClick('uncategorized')}
+              className={`px-4 py-2 rounded-full text-sm font-medium flex items-center gap-2 transition-all cursor-pointer ${
+                selectedCategoryId === 'uncategorized'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
+              title="Messages that haven't been categorized yet"
+            >
+              <span>Uncategorized</span>
+              <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                selectedCategoryId === 'uncategorized'
+                  ? 'bg-gray-700 text-white'
+                  : 'bg-gray-200 text-gray-900'
+              }`}>
+                {uncategorizedCount}
+              </span>
             </div>
-          ))}
+          </div>
         </div>
       ) : (
         <div className="text-center py-8">

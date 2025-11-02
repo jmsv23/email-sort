@@ -13,10 +13,21 @@ const POLL_INTERVAL = 15000;
 async function pollAccounts() {
   try {
     // Get all accounts that have a history_id set (meaning they're connected to Gmail)
+    // Include the user and their categories to check if they have any
     const accounts = await prisma.account.findMany({
       where: {
         provider: 'google',
         history_id: { not: null },
+      },
+      include: {
+        user: {
+          include: {
+            categories: {
+              select: { id: true },
+              take: 1, // We only need to know if at least one exists
+            },
+          },
+        },
       },
     });
 
@@ -25,6 +36,14 @@ async function pollAccounts() {
     for (const account of accounts) {
       try {
         if (!account.history_id) continue;
+
+        // Skip accounts where user doesn't have any categories yet
+        if (account.user.categories.length === 0) {
+          console.log(
+            `Skipping account ${account.provider}:${account.providerAccountId} - user has no categories yet`
+          );
+          continue;
+        }
 
         // Fetch history changes since last poll
         const historyData = await listGmailHistory(

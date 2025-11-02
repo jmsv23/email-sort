@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import SessionProvider from '@/components/SessionProvider';
+import { CategoryFilterProvider } from '@/contexts/CategoryFilterContext';
 
 export const metadata: Metadata = {
   title: 'Email Sort - AI-Powered Gmail Management',
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <SessionProvider>
-          {children}
+          <CategoryFilterProvider>
+            {children}
+          </CategoryFilterProvider>
         </SessionProvider>
       </body>
     </html>
