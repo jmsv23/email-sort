@@ -1,0 +1,34 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2022",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "incremental": true,
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "src/workers/**/*",
+    "src/lib/**/*",
+    "src/ai/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/app",
+    "src/components",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}

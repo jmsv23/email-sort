@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "build:worker": "tsc --project tsconfig.worker.json",
+    "start": "prisma migrate deploy && next start",
+    "start:worker": "node dist/workers/index.js",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -19,6 +21,7 @@
     "test:e2e:headed": "playwright test --headed",
     "test:all": "npm run test && npm run test:e2e",
     "worker": "tsx watch src/workers/index.ts",
+    "migrate:deploy": "prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio"

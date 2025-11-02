@@ -1,0 +1,192 @@
+name: "Deploy to Coolify"
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "Skip the build step and only deploy (true/false)"
+        required: false
+        default: false
+        type: boolean
+      skip_tests:
+        description: "Skip tests (use with caution)"
+        required: false
+        default: false
+        type: boolean
+
+# Ensure only one deployment runs at a time
+concurrency:
+  group: deployment
+  cancel-in-progress: true
+
+env:
+  DOCKER_REGISTRY: "ghcr.io"
+  DOCKER_REGISTRY_USERNAME: ${{ github.repository_owner }}
+  # GitHub provides GITHUB_TOKEN automatically for GHCR authentication
+  DOCKER_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+  WEB_IMAGE_NAME: "email-sort-web"
+  WORKER_IMAGE_NAME: "email-sort-worker"
+
+jobs:
+  # ============================================
+  # Test Job - Run linting and tests
+  # ============================================
+  test:
+    if: ${{ github.event.inputs.skip_tests != 'true' && github.event.inputs.skip_build != 'true' }}
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run type check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+  # ============================================
+  # Build Job - Build and push Docker images
+  # ============================================
+  build-and-push-images:
+    needs: test
+    if: ${{ always() && (needs.test.result == 'success' || needs.test.result == 'skipped') && github.event.inputs.skip_build != 'true' }}
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ env.DOCKER_REGISTRY_USERNAME }}
+          password: ${{ env.DOCKER_REGISTRY_PASSWORD }}
+
+      # ============================================
+      # Build and Push Web Service Image
+      # ============================================
+      - name: Extract metadata for Web image
+        id: meta-web
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_USERNAME }}/${{ env.WEB_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Web Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: web
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+
+      # ============================================
+      # Build and Push Worker Service Image
+      # ============================================
+      - name: Extract metadata for Worker image
+        id: meta-worker
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_USERNAME }}/${{ env.WORKER_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Worker Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: worker
+          push: true
+          tags: ${{ steps.meta-worker.outputs.tags }}
+          labels: ${{ steps.meta-worker.outputs.labels }}
+
+  # ============================================
+  # Deploy Job - Trigger Coolify deployment
+  # ============================================
+  deploy:
+    needs: build-and-push-images
+    if: ${{ always() && (needs.build-and-push-images.result == 'success' || (needs.build-and-push-images.result == 'skipped' && github.event.inputs.skip_build == 'true')) }}
+    name: Deploy to Coolify
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Deploy Web Service to Coolify
+        env:
+          COOLIFY_WEBHOOK_WEB: ${{ secrets.COOLIFY_WEBHOOK_WEB }}
+        run: |
+          if [ -n "$COOLIFY_WEBHOOK_WEB" ]; then
+            echo "🚀 Deploying web service..."
+            response=$(curl -s -w "%{http_code}" -o /tmp/web-response.txt "$COOLIFY_WEBHOOK_WEB")
+
+            if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
+              echo "✅ Web service deployment triggered successfully"
+            else
+              echo "❌ Web service deployment failed with status: $response"
+              cat /tmp/web-response.txt
+              exit 1
+            fi
+          else
+            echo "⚠️ COOLIFY_WEBHOOK_WEB not set, skipping web deployment"
+            exit 1
+          fi
+
+      - name: Deploy Worker Service to Coolify
+        env:
+          COOLIFY_WEBHOOK_WORKER: ${{ secrets.COOLIFY_WEBHOOK_WORKER }}
+        run: |
+          if [ -n "$COOLIFY_WEBHOOK_WORKER" ]; then
+            echo "🚀 Deploying worker service..."
+            response=$(curl -s -w "%{http_code}" -o /tmp/worker-response.txt "$COOLIFY_WEBHOOK_WORKER")
+
+            if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
+              echo "✅ Worker service deployment triggered successfully"
+            else
+              echo "❌ Worker service deployment failed with status: $response"
+              cat /tmp/worker-response.txt
+              exit 1
+            fi
+          else
+            echo "⚠️ COOLIFY_WEBHOOK_WORKER not set, skipping worker deployment"
+            exit 1
+          fi
+
+      - name: Deployment Summary
+        run: |
+          echo "================================================"
+          echo "🎉 Deployment Complete!"
+          echo "================================================"
+          echo "Web service: https://sort.manuelsantibanez.online"
+          echo "Worker service: Background jobs processing"
+          echo "================================================"
