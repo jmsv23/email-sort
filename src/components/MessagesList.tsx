@@ -106,7 +106,7 @@ export default function MessagesList({
     // Don't navigate if clicking checkbox or its cell
     const target = event.target as HTMLElement;
     if (
-      target.type === 'checkbox' ||
+      (target as HTMLInputElement).type === 'checkbox' ||
       target.closest('td')?.querySelector('input[type="checkbox"]')
     ) {
       return;

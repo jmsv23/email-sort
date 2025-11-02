@@ -4,6 +4,57 @@ import { prisma } from '@/lib/prisma';
 import { fetchGmailMessage, archiveGmailMessage } from '@/lib/gmail';
 import { getAIClient } from '@/ai/aiClient';
 import { startPolling } from './poller';
+import TurndownService from 'turndown';
+
+/**
+ * Extract text and HTML body from Gmail message payload
+ * Handles both single-part and multipart messages (recursive)
+ */
+function extractEmailBodies(payload: any): { bodyText: string; bodyHtml: string | null } {
+  let bodyText = '';
+  let bodyHtml: string | null = null;
+
+  // Helper to decode base64url data (Gmail uses URL-safe base64)
+  function decodeBody(data: string): string {
+    if (!data) return '';
+    // Replace URL-safe characters with standard base64
+    const base64 = data.replace(/-/g, '+').replace(/_/g, '/');
+    return Buffer.from(base64, 'base64').toString('utf-8');
+  }
+
+  // Helper to recursively extract parts from MIME structure
+  function extractParts(part: any) {
+    const mimeType = part.mimeType;
+
+    // If this part has body data, decode it
+    if (part.body?.data) {
+      const decoded = decodeBody(part.body.data);
+
+      // Extract text/plain for bodyText (first match wins)
+      if (mimeType === 'text/plain' && !bodyText) {
+        bodyText = decoded;
+      }
+      // Extract text/html for bodyHtml (first match wins)
+      else if (mimeType === 'text/html' && !bodyHtml) {
+        bodyHtml = decoded;
+      }
+    }
+
+    // Recursively process nested parts (for multipart messages)
+    if (part.parts && Array.isArray(part.parts)) {
+      for (const subPart of part.parts) {
+        extractParts(subPart);
+      }
+    }
+  }
+
+  // Start extraction from the payload root
+  if (payload) {
+    extractParts(payload);
+  }
+
+  return { bodyText, bodyHtml };
+}
 
 /**
  * Worker: Process new Gmail message
@@ -38,10 +89,19 @@ export const processNewMessageWorker = new Worker(
       }
     }
 
-    // Get body text (simplified)
-    let bodyText = '';
-    if (gmailMessage.payload?.body?.data) {
-      bodyText = Buffer.from(gmailMessage.payload.body.data, 'base64').toString('utf-8');
+    // Extract email bodies (text and HTML) from payload
+    const { bodyText, bodyHtml } = extractEmailBodies(gmailMessage.payload);
+
+    // Convert HTML to markdown if HTML body exists
+    let bodyMarkdownVersion: string | undefined = undefined;
+    if (bodyHtml) {
+      try {
+        const turndownService = new TurndownService();
+        bodyMarkdownVersion = turndownService.turndown(bodyHtml);
+      } catch (error) {
+        console.error('Failed to convert HTML to markdown:', error);
+        // Continue without markdown version
+      }
     }
 
     // Get user categories
@@ -65,7 +125,8 @@ export const processNewMessageWorker = new Worker(
     const aiAnalysis = await aiClient.classifyEmail({
       subject,
       from,
-      text: bodyText,
+      bodyTextVersion: bodyText,
+      bodyMarkdownVersion,
       categories: account.user.categories.map((cat) => ({
         id: cat.id,
         name: cat.name,
@@ -91,7 +152,7 @@ export const processNewMessageWorker = new Worker(
         to,
         snippet: gmailMessage.snippet || null,
         bodyText,
-        bodyHtml: null, // TODO: Extract HTML body
+        bodyHtml,
         aiSummary: aiAnalysis.summary,
         aiClassification: aiAnalysis as any,
         listUnsubscribeHeader,

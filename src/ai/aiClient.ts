@@ -5,7 +5,8 @@ export interface AIClient {
   classifyEmail(args: {
     subject: string;
     from: string;
-    text: string;
+    bodyTextVersion: string;
+    bodyMarkdownVersion?: string;
     categories: { id: string; name: string; description: string }[];
   }): Promise<{
     categoryId?: string;
@@ -31,7 +32,8 @@ export class GeminiAIClient implements AIClient {
   async classifyEmail(args: {
     subject: string;
     from: string;
-    text: string;
+    bodyTextVersion: string;
+    bodyMarkdownVersion?: string;
     categories: { id: string; name: string; description: string }[];
   }): Promise<{
     categoryId?: string;
@@ -56,7 +58,12 @@ export class GeminiAIClient implements AIClient {
 EMAIL:
 Subject: ${args.subject}
 From: ${args.from}
-Body: ${args.text.substring(0, 2000)}
+
+Body (Plain Text):
+${args.bodyTextVersion.substring(0, 2000)}
+
+Body (Markdown from HTML):
+${args.bodyMarkdownVersion ? args.bodyMarkdownVersion.substring(0, 2000) : 'N/A'}
 
 Analyze this email and return:
 - The best matching category ID (or null if no good match)
@@ -64,6 +71,8 @@ Analyze this email and return:
 - Reason for classification
 - A 2-3 sentence summary
 - Any unsubscribe link found in the email body (look for URLs containing "unsubscribe", "opt-out", "preferences", etc.)`;
+
+console.log('AI classification prompt:', prompt);
 
     const response = await this.ai.models.generateContent({
       model: this.model,
