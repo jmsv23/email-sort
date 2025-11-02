@@ -94,8 +94,7 @@ jobs:
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_USERNAME }}/${{ env.WEB_IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix={{branch}}-
+            type=raw,value={{branch}}-latest
 
       - name: Build and push Web Docker image
         uses: docker/build-push-action@v6
@@ -116,8 +115,7 @@ jobs:
         with:
           images: ${{ env.DOCKER_REGISTRY }}/${{ env.DOCKER_REGISTRY_USERNAME }}/${{ env.WORKER_IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix={{branch}}-
+            type=raw,value={{branch}}-latest
 
       - name: Build and push Worker Docker image
         uses: docker/build-push-action@v6
@@ -137,6 +135,7 @@ jobs:
     if: ${{ always() && (needs.build-and-push-images.result == 'success' || (needs.build-and-push-images.result == 'skipped' && github.event.inputs.skip_build == 'true')) }}
     name: Deploy to Coolify
     runs-on: ubuntu-latest
+    environment: main
 
     permissions:
       contents: read
