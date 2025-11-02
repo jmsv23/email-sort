@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
-import { categoriesAnalysisSchema } from './responseSchemas';
+import { PlaywrightClient } from '@/lib/playwrightClient';
+import { categoriesAnalysisSchema, playwrightInstructionsSchema, unsubscribeResponseSchema } from './responseSchemas';
 
 export interface AIClient {
   classifyEmail(args: {
@@ -14,6 +15,14 @@ export interface AIClient {
     reason: string;
     summary: string;
     unsubscribeLink?: string;
+  }>;
+
+  unsubscribeFrom(args: {
+    url: string;
+    email: string;
+  }): Promise<{
+    success: boolean;
+    reason: string;
   }>;
 }
 
@@ -114,6 +123,171 @@ console.log('AI classification prompt:', prompt);
     }
   }
 
+  async unsubscribeFrom(args: {
+    url: string;
+    email: string;
+  }): Promise<{
+    success: boolean;
+    reason: string;
+  }> {
+
+    const client = new PlaywrightClient();
+    await client.initialize({ headless: true });
+    await client.openPage(args.url);
+    const content = await client.getPageContent();
+    const screenshotBase64 = await client.getScreenshot();
+
+    const systemContent = [
+      'You are an unsubscribe automation assistant.',
+      'Given an unsubscribe URL and email address, analyze the page and determine the best strategy for unsubscribing.',
+      'Provide guidance on form fields to fill, buttons to click, and expected success indicators.',
+      'Return your response as a JSON array of instructions for automated unsubscribe using Playwright.',
+      'Each instruction should specify the action (fill, click, check, selectOption), the target element (by label text or role), and any necessary values. keep the instructions concise, ordered and focused on the unsubscribe process.',
+    ];
+    // Unsubscribe URL: ${args.url}
+    const prompt = `
+Email: ${args.email}
+Page Content (dom):
+${content.substring(0, 4000)}
+
+Analyze this unsubscribe link and provide instructions for automated unsubscribe.
+note: prompt provide page content and screenshot only for analysis, do not include them in the instructions.`;
+
+    const response = await this.ai.models.generateContent({
+      model: this.model,
+      config: {
+        systemInstruction: systemContent,
+        responseMimeType: "application/json",
+        responseSchema: playwrightInstructionsSchema,
+      },
+      contents: [
+        { 
+          text: prompt,
+        },
+        {
+          inlineData: {
+            mimeType: "image/png",
+            data: screenshotBase64,
+          }
+        }
+      ],
+    });
+
+    const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    try {
+      // Extract JSON from response (may be wrapped in markdown code blocks)
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON found in response');
+      }
+      const parsed = JSON.parse(jsonMatch[0]);
+      const { instructions } = parsed;
+
+      console.log('Executing unsubscribe instructions:', instructions);
+
+      for (const instruction of instructions) {
+        try {
+          switch (instruction.action) {
+            case 'fill':
+              await client.fill(
+                instruction.locatorType,
+                instruction.locatorValue,
+                instruction.value,
+                instruction.roleOptions,
+                10000 // 10 seconds timeout
+              );
+              break;
+            case 'click':
+              await client.click(
+                instruction.locatorType,
+                instruction.locatorValue,
+                instruction.roleOptions,
+                10000 // 10 seconds timeout
+              );
+              break;
+            case 'check':
+              await client.check(
+                instruction.locatorType,
+                instruction.locatorValue,
+                instruction.roleOptions,
+                10000 // 10 seconds timeout
+              );
+              break;
+            case 'selectOption':
+              await client.selectOption(
+                instruction.locatorType,
+                instruction.locatorValue,
+                instruction.value,
+                instruction.roleOptions,
+                10000 // 10 seconds timeout
+              );
+              break;
+            default:
+              console.warn('Unknown instruction action:', instruction.action);
+          }
+        } catch (error) {
+          console.error('Error executing unsubscribe instructions:', error);
+        }
+      }
+      
+
+      const afterScreenshot = await client.getScreenshot(); // Capture final state screenshot
+
+      const validateResponse = await this.ai.models.generateContent({
+        model: this.model,
+        config: {
+          systemInstruction: [
+            'You are an unsubscribe verification assistant.',
+            'Analyze the final state of the unsubscribe page after performing the actions and determine if the unsubscribe was likely successful or if there were errors.',
+            'Return your response as a JSON object indicating success (true/false) and reason.',
+          ],
+          responseMimeType: "application/json",
+          responseSchema: unsubscribeResponseSchema,
+        },
+        contents: [
+          { 
+            text: 'Please analyze the final state of the unsubscribe page after performing the actions. Indicate whether the unsubscribe was likely successful or if there were errors.',
+          },
+          {
+            inlineData: {
+              mimeType: "image/png",
+              data: afterScreenshot,
+            }
+          }
+        ],
+      });
+
+      const validateResponseText = validateResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+      let res = {
+        success: false,
+        reason: 'Unsubscribe verification failed',
+      }
+      try {
+        const validationJsonMatch = validateResponseText.match(/\{[\s\S]*\}/);
+        if (!validationJsonMatch) {
+          throw new Error('No JSON found in response');
+        }
+        const validationResult = JSON.parse(validationJsonMatch[0]);
+        res = {
+          ...validationResult,
+        };
+      } catch (error) {
+        console.error('Failed to parse unsubscribe validation response:', error);
+      }
+
+      await client.close();
+      return res;
+    } catch (error) {
+      console.error('Failed to parse unsubscribe instructions:', error);
+      await client.close();
+      return {
+        success: false,
+        reason: 'Something went wrong during unsubscribe process',
+      };
+    }
+  }
 }
 
 /**

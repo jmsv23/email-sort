@@ -44,3 +44,65 @@ export const categoriesAnalysisSchema = {
     "unsubscribeLink",
   ],
 };
+
+
+export const playwrightInstructionsSchema = {
+  type: Type.OBJECT,
+  properties: {
+    instructions: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          action: {
+            type: Type.STRING,
+            enum: ["fill", "check", "selectOption", "click"],
+            description: "The Playwright action to perform"
+          },
+          locatorType: {
+            type: Type.STRING,
+            enum: ["label", "role"],
+            description: "Type of locator to use (getByLabel or getByRole)"
+          },
+          locatorValue: {
+            type: Type.STRING,
+            description: "The actual label text or role name to locate the element"
+          },
+          value: {
+            type: Type.STRING,
+            nullable: true,
+            description: "Value to fill or option to select (required for fill and selectOption actions)"
+          },
+          roleOptions: {
+            type: Type.OBJECT,
+            nullable: true,
+            properties: {
+              name: {
+                type: Type.STRING,
+                nullable: true,
+                description: "Accessible name for role-based locators"
+              }
+            },
+            description: "Additional options for getByRole locators"
+          }
+        },
+        required: ["action", "locatorType", "locatorValue"]
+      }
+    }
+  },
+  required: ["instructions"]
+};
+
+export const unsubscribeResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    success: {
+      type: Type.BOOLEAN,
+      description: "Whether the unsubscribe action was successful"
+    },
+    reason: {
+      type: Type.STRING,
+      description: "Reason for the unsubscribe action's success or failure"
+    },
+  },
+};
