@@ -91,6 +91,10 @@ RUN npm ci --only=production
 
 # Copy Prisma schema and generated client
 COPY --from=builder /app/prisma ./prisma
+
+# rebuild prisma client for runtime "debian-openssl-3.0.x".
+RUN npx prisma generate
+
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy compiled worker code
