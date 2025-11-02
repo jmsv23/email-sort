@@ -79,10 +79,7 @@ CMD ["npm", "run", "start"]
 # ============================================
 # Production Worker Target
 # ============================================
-FROM node:20-alpine AS worker
-
-# Install openssl for Prisma
-RUN apk add --no-cache openssl
+FROM node:20-bookworm AS worker
 
 WORKDIR /app
 
@@ -102,9 +99,12 @@ COPY --from=builder /app/dist ./dist
 # Copy source files needed by worker (AI prompts, utilities, etc.)
 COPY --from=builder /app/src ./src
 
+# Install Playwright system dependencies and Chromium browser
+RUN npx playwright install --with-deps chromium
+
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 worker && \
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 worker -g nodejs && \
     chown -R worker:nodejs /app
 
 USER worker
