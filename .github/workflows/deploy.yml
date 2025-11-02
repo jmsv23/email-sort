@@ -145,10 +145,11 @@ jobs:
       - name: Deploy Web Service to Coolify
         env:
           COOLIFY_WEBHOOK_WEB: ${{ secrets.COOLIFY_WEBHOOK_WEB }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -n "$COOLIFY_WEBHOOK_WEB" ]; then
             echo "🚀 Deploying web service..."
-            response=$(curl -s -w "%{http_code}" -o /tmp/web-response.txt "$COOLIFY_WEBHOOK_WEB")
+            response=$(curl -s -w "%{http_code}" -o /tmp/web-response.txt -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK_WEB")
 
             if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
               echo "✅ Web service deployment triggered successfully"
@@ -165,10 +166,11 @@ jobs:
       - name: Deploy Worker Service to Coolify
         env:
           COOLIFY_WEBHOOK_WORKER: ${{ secrets.COOLIFY_WEBHOOK_WORKER }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -n "$COOLIFY_WEBHOOK_WORKER" ]; then
             echo "🚀 Deploying worker service..."
-            response=$(curl -s -w "%{http_code}" -o /tmp/worker-response.txt "$COOLIFY_WEBHOOK_WORKER")
+            response=$(curl -s -w "%{http_code}" -o /tmp/worker-response.txt -H "Authorization: Bearer $COOLIFY_TOKEN" "$COOLIFY_WEBHOOK_WORKER")
 
             if [ "$response" -eq 200 ] || [ "$response" -eq 201 ]; then
               echo "✅ Worker service deployment triggered successfully"
