@@ -1,17 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import MessagesFilter from './MessagesFilter';
 import MessagesList from './MessagesList';
 import BulkActionsBar from './BulkActionsBar';
 import { useCategoryFilter } from '@/contexts/CategoryFilterContext';
 
-export default function MessagesSection() {
+// Polling interval in milliseconds
+const POLLING_INTERVAL = 15000; // 15 seconds
+
+interface MessagesSectionProps {
+  onRefreshNeeded?: () => void; // Callback to notify parent when new messages detected
+}
+
+export default function MessagesSection({ onRefreshNeeded }: MessagesSectionProps) {
   const { selectedCategoryId } = useCategoryFilter();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [totalMessageCount, setTotalMessageCount] = useState<number | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleAccountChange = (accountId: string | null) => {
     setSelectedAccount(accountId);
@@ -96,6 +105,73 @@ export default function MessagesSection() {
       setIsProcessing(false);
     }
   };
+
+  // Polling function to check for new messages
+  const checkForNewMessages = async () => {
+    try {
+      // Only check total count with a lightweight query
+      const response = await fetch('/api/messages?limit=1');
+      if (!response.ok) {
+        console.error('Failed to poll for new messages');
+        return;
+      }
+
+      const data = await response.json();
+      const newTotalCount = data.pagination?.totalCount;
+
+      if (newTotalCount !== undefined) {
+        // If this is the first poll, just store the count
+        if (totalMessageCount === null) {
+          setTotalMessageCount(newTotalCount);
+          return;
+        }
+
+        // If count changed, refresh the UI
+        if (newTotalCount !== totalMessageCount) {
+          console.log(`New messages detected: ${totalMessageCount} -> ${newTotalCount}`);
+          setTotalMessageCount(newTotalCount);
+          setRefreshKey(prev => prev + 1); // Trigger messages list refresh
+
+          // Notify parent to refresh categories
+          if (onRefreshNeeded) {
+            onRefreshNeeded();
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error polling for new messages:', error);
+    }
+  };
+
+  // Set up polling interval
+  useEffect(() => {
+    // Don't poll if user has messages selected (to avoid disrupting bulk actions)
+    const shouldPoll = selectedMessages.length === 0 && !isProcessing;
+
+    if (shouldPoll) {
+      // Initial check
+      checkForNewMessages();
+
+      // Set up interval
+      pollingIntervalRef.current = setInterval(() => {
+        checkForNewMessages();
+      }, POLLING_INTERVAL);
+    } else {
+      // Clear interval if user has selection or is processing
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    }
+
+    // Cleanup on unmount or when dependencies change
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+  }, [selectedMessages.length, isProcessing, totalMessageCount, onRefreshNeeded]);
 
   return (
     <div className="space-y-6">
