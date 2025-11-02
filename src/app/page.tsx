@@ -4,6 +4,7 @@ import CategoriesSection from '@/components/CategoriesSection';
 import Navbar from '@/components/Navbar';
 import { SyncButton } from '@/components/SyncButton';
 import MessagesSection from '@/components/MessagesSection';
+import Link from 'next/link';
 
 export default async function Home() {
   const session = await auth();
@@ -45,9 +46,17 @@ export default async function Home() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-2xl font-bold mb-4">Welcome, {session.user.name}!</h2>
           {/* <SyncButton /> */}
-          <p className="text-gray-600 mb-4">
-            This are the email accounts that we are watching...
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-gray-600">
+              This are the email accounts that we are watching...
+            </p>
+            <Link
+              href="/accounts"
+              className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+            >
+              Add account
+            </Link>
+          </div>
           {accounts.length > 0 ? (
             <ul className="divide-y divide-gray-200">
               {accounts.map((account) => (
