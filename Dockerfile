@@ -103,15 +103,19 @@ COPY --from=builder /app/dist ./dist
 # Copy source files needed by worker (AI prompts, utilities, etc.)
 COPY --from=builder /app/src ./src
 
-# Install Playwright system dependencies and Chromium browser
-RUN npx playwright install --with-deps chromium
+# Install Playwright system dependencies AS ROOT (requires sudo)
+RUN npx playwright install-deps chromium
 
-# Create non-root user
+# Create non-root user with home directory
 RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 worker -g nodejs && \
+    useradd --system --uid 1001 worker -g nodejs -m && \
     chown -R worker:nodejs /app
 
 USER worker
+
+# Install Playwright browser binaries AS WORKER USER
+# This installs browsers in /home/worker/.cache/ms-playwright/
+RUN npx playwright install chromium
 
 # Worker doesn't expose any ports (connects to Redis/Postgres)
 
