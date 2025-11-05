@@ -161,6 +161,7 @@ Page Content (dom):
 ${content.substring(0, 4000)}
 
 Analyze this unsubscribe link and provide instructions for automated unsubscribe.
+All fields of the form should be filled even the ones not strictly necessary to proceed to increase the success rate.
 note: prompt provide page content and screenshot only for analysis, do not include them in the instructions.`;
 
     const response = await this.ai.models.generateContent({
@@ -241,6 +242,8 @@ note: prompt provide page content and screenshot only for analysis, do not inclu
         }
       }
       
+      // Wait a moment for any final state to load.
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       const afterScreenshot = await client.getScreenshot(); // Capture final state screenshot
 
